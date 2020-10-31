@@ -1,0 +1,24 @@
+language: go
+sudo: false
+
+go:
+  - "1.13"
+  - "1.14"
+  - "1.15"
+  - "tip"
+
+before_install:
+  - export PATH=$HOME/gopath/bin:$PATH
+  - go get github.com/mattn/goveralls
+
+script:
+  - go test -race ./...
+  - go test -coverprofile=coverage.out -cover ./...
+  - goveralls -coverprofile=coverage.out -service=travis-ci
+
+matrix:
+  allow_failures:
+    - go: tip
+
+git:
+  depth: 10
