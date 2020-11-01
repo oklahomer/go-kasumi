@@ -1,4 +1,4 @@
-[![PkgGoDev](https://pkg.go.dev/badge/oklahomer/go-kasumi)](https://pkg.go.dev/oklahomer/go-kasumi)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/oklahomer/go-kasumi)](https://pkg.go.dev/github.com/oklahomer/go-kasumi)
 [![Go Report Card](https://goreportcard.com/badge/github.com/oklahomer/go-kasumi)](https://goreportcard.com/report/github.com/oklahomer/go-kasumi)
 [![Build Status](https://travis-ci.org/oklahomer/go-kasumi.svg?branch=main)](https://travis-ci.org/oklahomer/go-kasumi)
 [![Coverage Status](https://coveralls.io/repos/github/oklahomer/go-kasumi/badge.svg?branch=master)](https://coveralls.io/github/oklahomer/go-kasumi?branch=master)
