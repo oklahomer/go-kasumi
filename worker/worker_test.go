@@ -132,10 +132,7 @@ func TestRun(t *testing.T) {
 	rootCtx := context.Background()
 	workerCtx, cancelWorker := context.WithCancel(rootCtx)
 	defer cancelWorker()
-	worker, err := Run(workerCtx, NewConfig())
-	if err != nil {
-		t.Fatalf("Unexpected error: %s.", err.Error())
-	}
+	worker := Run(workerCtx, NewConfig())
 
 	executed := make(chan struct{}, 1)
 	_ = worker.Enqueue(func() {
@@ -171,15 +168,12 @@ func TestRun_ErrEnqueueAfterShutdown(t *testing.T) {
 	rootCtx := context.Background()
 	workerCtx, cancelWorker := context.WithCancel(rootCtx)
 
-	worker, err := Run(workerCtx, NewConfig())
-	if err != nil {
-		t.Fatalf("Unexpected error: %s.", err.Error())
-	}
+	worker := Run(workerCtx, NewConfig())
 
 	cancelWorker()
 	time.Sleep(100 * time.Millisecond) // Wait til cancel is propagated to all worker goroutines.
 
-	err = worker.Enqueue(func() {})
+	err := worker.Enqueue(func() {})
 
 	if !errors.Is(err, ErrEnqueueAfterWorkerShutdown) {
 		t.Errorf("Expected error is not returned: %+v", err)
@@ -194,14 +188,11 @@ func TestRun_ErrQueueOverflow(t *testing.T) {
 	config := NewConfig()
 	config.QueueSize = 0
 	config.WorkerNum = 1
-	worker, err := Run(workerCtx, config)
+	worker := Run(workerCtx, config)
 	time.Sleep(100 * time.Millisecond) // Wait til worker goroutines are completely activated.
-	if err != nil {
-		t.Fatalf("Unexpected error: %s", err.Error())
-	}
 
 	// This job blocks the only available worker
-	err = worker.Enqueue(func() {
+	err := worker.Enqueue(func() {
 		time.Sleep(3 * time.Second)
 	})
 	if err != nil {
@@ -226,14 +217,10 @@ func TestRun_WorkerOption(t *testing.T) {
 			cnt++
 		},
 	}
-	_, err := Run(workerCtx, &Config{}, opts...)
+	Run(workerCtx, &Config{}, opts...)
 
 	if cnt != len(opts) {
 		t.Fatalf("%d WorkerOptions are given, but executed %d time(s).", len(opts), cnt)
-	}
-
-	if err != nil {
-		t.Fatalf("Unexpected error is returned: %s", err.Error())
 	}
 }
 

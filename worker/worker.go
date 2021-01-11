@@ -91,7 +91,7 @@ type Worker interface {
 // Run creates as many child workers as specified by *Config and start them.
 // When Run completes, Worker is returned so jobs can be enqueued.
 // Multiple calls to Run() creates multiple Worker with separate context, queue and child workers.
-func Run(ctx context.Context, config *Config, options ...Option) (Worker, error) {
+func Run(ctx context.Context, config *Config, options ...Option) Worker {
 	incoming := make(chan func(), config.QueueSize)
 
 	w := &worker{
@@ -132,7 +132,7 @@ func Run(ctx context.Context, config *Config, options ...Option) (Worker, error)
 		go supervise(ctx, w.reporter, incoming, config.SuperviseInterval)
 	}
 
-	return w, nil
+	return w
 }
 
 func runChild(ctx context.Context, job <-chan func(), workerID uint) {
