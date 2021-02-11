@@ -29,6 +29,31 @@ func (e *Errors) appendError(err error) {
 	*e = append(*e, err)
 }
 
+// LastErrorOf receives error and, when this is *Errors returned by retrial function, this function returns the last execution error.
+// This simply returns the given error value when non-*Errors value is given, and returns nil when nil is given.
+//
+// When the last error is important to check condition, a developer may check the last error somewhat like below:
+//
+//  err := Retry(5, func() error {
+//    // Do something
+//    return nil
+//  })
+//  lastErr := LastErrorOf(err)
+//  if(lastErr != nil) {
+//    // All trial fails and lastErr represents the last execution error.
+//    // lastError == nil means the successful execution
+//  }
+func LastErrorOf(e error) error {
+	switch typed := e.(type) {
+	case *Errors:
+		return (*typed)[len(*typed)-1]
+
+	default:
+		return e
+
+	}
+}
+
 // NewPolicy creates and returns a new retrial policy.
 // Rather than selecting specific retrial functions -- Retry(), WithInterval() and WithBackOff() -- depending on usages,
 // developers are free to pass a configurable retrial policy to WithPolicy().
@@ -96,13 +121,13 @@ func Retry(trial int, function func() error) error {
 	return WithInterval(trial, function, 0*time.Second)
 }
 
-// WithInterval retries the given function at interval.
+// WithInterval executes the given function at a fixed interval until the function returns no error or the retrial count reaches the specified threshold.
 func WithInterval(trial int, function func() error, interval time.Duration) error {
 	return WithBackOff(trial, function, interval, 0)
 }
 
-// WithBackOff retries given function at interval, but the interval differs every time.
-// The base interval and randomization factor are specified by 3rd and 4th arguments.
+// WithBackOff executes the given function at an interval until the function returns no error or the retrial count reaches the specified threshold.
+// The interval differs every time. The base interval and randomization factor are specified by meanInterval and randFactor.
 func WithBackOff(trial int, function func() error, meanInterval time.Duration, randFactor float64) error {
 	errs := &Errors{}
 	for trial > 0 {

@@ -128,6 +128,39 @@ func TestErrors_Error(t *testing.T) {
 	}
 }
 
+func TestLastErrorOf(t *testing.T) {
+	t.Run("unknown type of error", func(t *testing.T) {
+		err := errors.New("unknown")
+		lastError := LastErrorOf(err)
+
+		if err != lastError {
+			t.Errorf("Expected error is not returned: %+v", lastError)
+		}
+	})
+
+	t.Run("*Errors is fed", func(t *testing.T) {
+		err := errors.New("last error")
+		errs := &Errors{
+			errors.New("first error"),
+			errors.New("second error"),
+			err,
+		}
+		lastError := LastErrorOf(errs)
+
+		if err != lastError {
+			t.Errorf("Expected error is not returned: %+v", lastError)
+		}
+	})
+
+	t.Run("empty *Errors is fed", func(t *testing.T) {
+		lastError := LastErrorOf(nil)
+
+		if lastError != nil {
+			t.Errorf("Unexpected returned value: %+v", lastError)
+		}
+	})
+}
+
 func TestWithInterval(t *testing.T) {
 	// Execute the function twice and see the actual interval
 	i := 0
@@ -156,36 +189,61 @@ func TestWithInterval(t *testing.T) {
 }
 
 func TestWithBackOff(t *testing.T) {
-	// Execute the function twice and see if the actual interval is in-between minimum and maximum interval
-	i := 0
-	interval := 100 * time.Millisecond
-	factor := 0.01
-	var initialTrialAt time.Time
-	var secondTrialAt time.Time
-	_ = WithBackOff(2, func() error {
-		i++
-		if i == 1 {
-			initialTrialAt = time.Now()
-		} else {
-			secondTrialAt = time.Now()
+	t.Run("retrial interval", func(t *testing.T) {
+		// Execute the function twice and see if the actual interval is in-between minimum and maximum interval
+		i := 0
+		interval := 100 * time.Millisecond
+		factor := 0.01
+		var initialTrialAt time.Time
+		var secondTrialAt time.Time
+		_ = WithBackOff(2, func() error {
+			i++
+			if i == 1 {
+				initialTrialAt = time.Now()
+			} else {
+				secondTrialAt = time.Now()
+			}
+
+			return errors.New("error")
+		}, interval, factor)
+
+		// Calculate the min/max interval
+		delta := factor * float64(interval)
+		min := float64(interval) - delta
+		max := float64(interval) + delta
+
+		elapsed := secondTrialAt.Sub(initialTrialAt)
+		if float64(elapsed.Nanoseconds()) <= min {
+			t.Errorf("Expected minimum retry interval is %f, but actual interval was %d.", min, elapsed.Nanoseconds())
 		}
+		// Give a bit buffer time for execution itself
+		if float64(elapsed.Nanoseconds()) >= max+float64(10*time.Millisecond) {
+			t.Errorf("Expected maximum retry interval is %f, but actual interval was %d.", max, elapsed.Nanoseconds())
+		}
+	})
 
-		return errors.New("error")
-	}, interval, factor)
+	t.Run("error is returned", func(t *testing.T) {
+		i := 0
+		err := WithBackOff(2, func() error {
+			i++
+			return fmt.Errorf("%d", i)
+		}, 0*time.Second, 0)
 
-	// Calculate the min/max interval
-	delta := factor * float64(interval)
-	min := float64(interval) - delta
-	max := float64(interval) + delta
+		typedErr := err.(*Errors)
+		if len(*typedErr) != 2 {
+			t.Errorf("Unexpected number of errors is returned: %d", len(*typedErr))
+		}
+	})
 
-	elapsed := secondTrialAt.Sub(initialTrialAt)
-	if float64(elapsed.Nanoseconds()) <= min {
-		t.Errorf("Expected minimum retry interval is %f, but actual interval was %d.", min, elapsed.Nanoseconds())
-	}
-	// Give a bit buffer time for execution itself
-	if float64(elapsed.Nanoseconds()) >= max+float64(10*time.Millisecond) {
-		t.Errorf("Expected maximum retry interval is %f, but actual interval was %d.", max, elapsed.Nanoseconds())
-	}
+	t.Run("no error is returned", func(t *testing.T) {
+		err := WithBackOff(2, func() error {
+			return nil
+		}, 0*time.Second, 0)
+
+		if err != nil {
+			t.Errorf("Unexpected error is returned: %+v", err)
+		}
+	})
 }
 
 func Test_randInterval(t *testing.T) {
