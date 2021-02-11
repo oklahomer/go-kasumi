@@ -31,7 +31,11 @@ type Config struct {
 // To override with desired value, pass the returned instance to json.Unmarshal or yaml.Unmarshal.
 func NewConfig() *Config {
 	return &Config{
-		WorkerNum:         100,
+		// WorkerNum's default value is set to the number of CPU found.
+		// The right number of workers may vary depending on the characteristics of jobs the workers are responsible for.
+		// This configuration value assume that the jobs are CPU-intensive.
+		// Otherwise, especially when the jobs are IO-intensive, the number should be bigger.
+		WorkerNum:         uint(runtime.NumCPU()),
 		QueueSize:         10,
 		SuperviseInterval: 60 * time.Second,
 	}
