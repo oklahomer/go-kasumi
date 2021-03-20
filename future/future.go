@@ -1,3 +1,4 @@
+// Package future provides a mechanism to run a job in an asynchronous manner and subscribe to the result.
 package future
 
 import (

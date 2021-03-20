@@ -1,4 +1,4 @@
-// Package retry provides general retry logic and designated error structure that contains each retrial's error.
+// Package retry provides general retry logic and a designated error structure that contains each retrial's error.
 package retry
 
 import (
@@ -29,10 +29,10 @@ func (e *Errors) appendError(err error) {
 	*e = append(*e, err)
 }
 
-// LastErrorOf receives error and, when this is *Errors returned by retrial function, this function returns the last execution error.
-// This simply returns the given error value when non-*Errors value is given, and returns nil when nil is given.
+// LastErrorOf receives an error implementation and, when this is *Errors returned by retrial function, returns the last execution error.
+// This simply returns the given error value when non-*Errors value is given; returns nil when nil is given.
 //
-// When the last error is important to check condition, a developer may check the last error somewhat like below:
+// When the last returned error is important to check the state, a developer may check the last error somewhat like below:
 //
 //  err := Retry(5, func() error {
 //    // Do something
@@ -80,7 +80,7 @@ func NewPolicy() *Policy {
 	}
 }
 
-// Policy represents a configuration value for retrial logic.
+// Policy represents a configuration value of the retrial logic.
 type Policy struct {
 	Trial      int           `json:"trial" yaml:"trial"`
 	Interval   time.Duration `json:"interval" yaml:"interval"`
@@ -93,7 +93,7 @@ func (p *Policy) WithTrial(cnt int) *Policy {
 	return p
 }
 
-// WithInterval sets interval for each retrial.
+// WithInterval sets the interval for each retrial.
 // When RandFactor is set, this interval is used as the base interval.
 func (p *Policy) WithInterval(d time.Duration) *Policy {
 	p.Interval = d
@@ -107,7 +107,7 @@ func (p *Policy) WithRandFactor(factor float64) *Policy {
 	return p
 }
 
-// WithPolicy receives retrial policy and an executable function.
+// WithPolicy receives a retrial policy and an executable function.
 // The passed function is repeatedly executed until no error is returned or the retrial count exceeds the given configuration value.
 // Unlike other retrial functions, this function is among the most flexible since a developer has maximum freedom on the configuration.
 func WithPolicy(policy *Policy, function func() error) error {

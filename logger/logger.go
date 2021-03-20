@@ -1,4 +1,4 @@
-// Package logger provides logging mechanism including replaceable Logger interface and its default implementation.
+// Package logger provides logging a mechanism including a replaceable Logger interface and its default implementation.
 //
 // Developers may replace default implementation and output level with her desired Logger implementation in a thread-safe manner as below:
 //
@@ -53,8 +53,8 @@ var (
 )
 
 const (
-	// ErrorLevel indicates the error state of an events. This must be noted and be fixed.
-	// In a practical situation, fix may include lowering the corresponding event's log level.
+	// ErrorLevel indicates the error state of an event. This must be noted and be fixed.
+	// In a practical situation, a fix may include lowering the corresponding event's log level.
 	ErrorLevel Level = iota
 
 	// WarnLevel represents those events that are not critical but deserve to note.
@@ -168,7 +168,7 @@ func NewWithStandardLogger(l *log.Logger) Logger {
 	}
 }
 
-// SetLogger receives a Logger implementation and sets this as a logger. From this call forward, any call to logging
+// SetLogger receives a Logger implementation and sets this as a logger. From this call forward, any call to the logging
 // method proxies arguments to the corresponding logging method of the given Logger.
 // e.g. call to logger.Info() points to Logger.Info().
 //
