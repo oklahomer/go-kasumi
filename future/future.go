@@ -31,6 +31,20 @@ func New(fn func() (interface{}, error)) *Future {
 	return f
 }
 
+// NewError creates a Future instance that returns the given error.
+// Since this does not dispatch a task to a new goroutine, this is more efficient than calling New() with a function that returns an error.
+func NewError(err error) *Future {
+	finished := make(chan struct{})
+	close(finished) // Already finished.
+
+	return &Future{
+		finished: finished,
+		result: &Result{
+			Error: err,
+		},
+	}
+}
+
 func execute(fn func() (interface{}, error)) (result *Result) {
 	defer func() {
 		r := recover()

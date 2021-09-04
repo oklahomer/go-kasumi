@@ -17,6 +17,39 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestNewError(t *testing.T) {
+	t.Run("a single error", func(t *testing.T) {
+		err := errors.New("an error")
+		future := NewError(err)
+
+		if future == nil {
+			t.Error("Future instance is not returned.")
+		}
+
+		result := future.Block()
+		if result.Error != err {
+			t.Errorf("The given error is not returned: %+v", result.Error)
+		}
+	})
+
+	t.Run("chained methods", func(t *testing.T) {
+		err := errors.New("an error")
+		future := NewError(err).
+			Then(func(_ interface{}) (interface{}, error) {
+				return nil, nil
+			})
+
+		if future == nil {
+			t.Error("Future instance is not returned.")
+		}
+
+		result := future.Block()
+		if result.Error != err {
+			t.Errorf("The given error is not returned: %+v", result.Error)
+		}
+	})
+}
+
 func TestFuture_Block(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		result := New(func() (interface{}, error) {
