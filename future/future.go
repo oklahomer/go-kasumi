@@ -10,22 +10,18 @@ import (
 // ErrTimeout indicates that a call to Future.Wait() timed out.
 var ErrTimeout = errors.New("task execution timed out")
 
-// Future provides access to ongoing events that is not finished, yet.
+// Future provides access to an ongoing event that is not finished, yet.
 type Future struct {
-	finished chan struct{}
-	result   *Result
+	result chan *Result
 }
 
 // New creates a Future instance with the given executable function.
 // Subscribing to this instance gives asynchronous access to the result.
 func New(fn func() (interface{}, error)) *Future {
-	f := &Future{
-		finished: make(chan struct{}),
-	}
+	f := newFuture()
 
 	go func() {
-		f.result = execute(fn)
-		close(f.finished)
+		f.result <- execute(fn)
 	}()
 
 	return f
@@ -34,14 +30,15 @@ func New(fn func() (interface{}, error)) *Future {
 // NewError creates a Future instance that returns the given error.
 // Since this does not dispatch a task to a new goroutine, this is more efficient than calling New() with a function that returns an error.
 func NewError(err error) *Future {
-	finished := make(chan struct{})
-	close(finished) // Already finished.
+	f := newFuture()
+	f.result <- &Result{Error: err}
 
+	return f
+}
+
+func newFuture() *Future {
 	return &Future{
-		finished: finished,
-		result: &Result{
-			Error: err,
-		},
+		result: make(chan *Result, 1),
 	}
 }
 
@@ -73,8 +70,7 @@ func execute(fn func() (interface{}, error)) (result *Result) {
 
 // Block waits until the given function finishes and returns the Result.
 func (f *Future) Block() *Result {
-	<-f.finished
-	return f.result
+	return <-f.result
 }
 
 // Wait waits until its execution finishes or the given ctx is canceled, and then returns the Result.
@@ -95,14 +91,38 @@ func (f *Future) Block() *Result {
 // When the given ctx is canceled before the execution completion, the returning Result always contains an error value of ErrTimeout.
 func (f *Future) Wait(ctx context.Context) *Result {
 	select {
-	case <-f.finished:
-		return f.result
+	case result := <-f.result:
+		return result
 
 	case <-ctx.Done():
 		return &Result{
 			Error: ErrTimeout,
 		}
 	}
+}
+
+// C returns a channel that passes the Result of execution.
+// Reading this channel without cancellation mechanism is equivalent to the call to Block;
+// The call to this with a select statement with one alternative case of context.Done or timer.C is equivalent to Wait.
+// This method is beneficial when a more flexible select statement with multiple alternative cases is in use.
+//
+//	for {
+//		select {
+//		case result := <- future1.C():
+//			return result, nil
+//
+//		case result := <- future2.C():
+//			return result, nil
+//
+//		case <- ticker.C:
+//			fmt.Println(`waiting...`)
+//
+//		case <- ctx.Done():
+//			return nil, errors.New(`timed out`)
+//		}
+//	}
+func (f *Future) C() <-chan *Result {
+	return f.result
 }
 
 // Then lets a given function to be executed after the preceding task.

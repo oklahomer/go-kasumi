@@ -235,3 +235,33 @@ func TestFuture_Then(t *testing.T) {
 		}
 	})
 }
+
+func TestFuture_C(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel() // Just to be sure
+
+		f := New(func() (interface{}, error) {
+			<-ctx.Done()
+			return nil, nil
+		})
+
+		select {
+		case <-f.C():
+			t.Error("Task is unexpectedly finished.")
+
+		default:
+			// O.K.
+		}
+
+		cancel()
+
+		select {
+		case <-f.C():
+			// O.K.
+
+		case <-time.NewTimer(1 * time.Second).C: // Give a bit of buffer time to wait for cancellation
+			t.Error("Task is not finished")
+		}
+	})
+}
