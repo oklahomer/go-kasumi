@@ -2,9 +2,9 @@
 package future
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"time"
 )
 
 // ErrTimeout indicates that a call to Future.Wait() timed out.
@@ -77,16 +77,28 @@ func (f *Future) Block() *Result {
 	return f.result
 }
 
-// Wait waits until the given duration passes and returns the Result.
-// If the task is not finished within the given interval, the returning Result contains an error of ErrTimeout.
-func (f *Future) Wait(d time.Duration) *Result {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
+// Wait waits until its execution finishes or the given ctx is canceled, and then returns the Result.
+// A typical usage is somewhat like below:
+//
+//	// Initiate a time-consuming task
+//	f := future.New(func() (interface{}, error)) {
+// 		// Do some time-consuming task
+//		return struct{}{}, nil
+// 	}
+//
+//	// Prepare a context.Context that is canceled when the parentCtx is canceled or the timeout interval passes.
+//	ctx, _ := context.WithTimeout(parentCtx, 3*time.Second)
+//
+//	// Wait til the task execution ends or the ctx is canceled.
+//	result := f.Wait(ctx)
+//
+// When the given ctx is canceled before the execution completion, the returning Result always contains an error value of ErrTimeout.
+func (f *Future) Wait(ctx context.Context) *Result {
 	select {
 	case <-f.finished:
 		return f.result
 
-	case <-timer.C:
+	case <-ctx.Done():
 		return &Result{
 			Error: ErrTimeout,
 		}
@@ -94,9 +106,9 @@ func (f *Future) Wait(d time.Duration) *Result {
 }
 
 // Then lets a given function to be executed after the preceding task.
-// When the preceding task finishes successfully, then the result is passed to fn;
+// When the preceding task finishes successfully, then the result value which is equivalent to Result.Value is passed to fn;
 // When the preceding task finishes with an error, then this immediately returns a Future with the preceding error.
-func (f *Future) Then(fn func(data interface{}) (interface{}, error)) *Future {
+func (f *Future) Then(fn func(value interface{}) (interface{}, error)) *Future {
 	return New(func() (interface{}, error) {
 		// Wait till the initial task ends
 		result := f.Block()

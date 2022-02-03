@@ -1,6 +1,7 @@
 package future
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -103,10 +104,14 @@ func TestFuture_Block(t *testing.T) {
 
 func TestFuture_Wait(t *testing.T) {
 	t.Run("timeout", func(t *testing.T) {
-		result := New(func() (interface{}, error) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		f := New(func() (interface{}, error) {
 			time.Sleep(1 * time.Second)
 			return true, nil
-		}).Wait(100 * time.Millisecond)
+		})
+		result := f.Wait(ctx)
 
 		err := result.Error
 		if err == nil {
@@ -123,17 +128,13 @@ func TestFuture_Wait(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		startAt := time.Now()
-		result := New(func() (interface{}, error) {
-			time.Sleep(100 * time.Millisecond)
-			return true, nil
-		}).Wait(1 * time.Second)
-		elapsed := time.Now().Sub(startAt)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
 
-		// Give a buffer of give or take 10 milliseconds
-		if elapsed >= 110*time.Millisecond {
-			t.Errorf("Task waited too long: %d millisecond.", elapsed/time.Millisecond)
-		}
+		f := New(func() (interface{}, error) {
+			return true, nil
+		})
+		result := f.Wait(ctx)
 
 		if result.Error != nil {
 			t.Errorf("Unexpected error is returned: %+v", result.Error)
@@ -154,8 +155,8 @@ func TestFuture_Then(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		result := New(func() (interface{}, error) {
 			return 1, nil
-		}).Then(func(data interface{}) (interface{}, error) {
-			i := data.(int)
+		}).Then(func(value interface{}) (interface{}, error) {
+			i := value.(int)
 			return i + 1, nil
 		}).Block()
 
@@ -179,7 +180,7 @@ func TestFuture_Then(t *testing.T) {
 
 		result := New(func() (interface{}, error) {
 			return nil, err
-		}).Then(func(data interface{}) (interface{}, error) {
+		}).Then(func(_ interface{}) (interface{}, error) {
 			called <- struct{}{}
 			return struct{}{}, nil
 		}).Block()
@@ -188,6 +189,40 @@ func TestFuture_Then(t *testing.T) {
 			t.Fatal("Expected error is not returned.")
 		}
 		if result.Error != err {
+			t.Errorf("Unexpected error is returned: %+v", result.Error)
+		}
+
+		select {
+		case <-called:
+			t.Error("Second task is unexpectedly called.")
+
+		default:
+			// O.K.
+		}
+	})
+
+	t.Run("first task blocks forever", func(t *testing.T) {
+		called := make(chan struct{}, 1)
+
+		f := New(func() (interface{}, error) {
+			time.Sleep(10 * time.Second)
+			return nil, nil
+		}).Then(func(_ interface{}) (interface{}, error) {
+			called <- struct{}{}
+			return nil, nil
+		})
+
+		// Prepare a context to be passed, which is canceled very soon.
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		// This should return immediately before the first task is finished.
+		result := f.Wait(ctx)
+
+		if result.Error == nil {
+			t.Fatal("Expected error is not returned.")
+		}
+		if result.Error != ErrTimeout {
 			t.Errorf("Unexpected error is returned: %+v", result.Error)
 		}
 
